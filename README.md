@@ -1,346 +1,181 @@
-\# 🦅 TraceHawk: Network Forensics \& Threat Detection Lab
+# TraceHawk: Network Forensics & Threat Detection Lab
 
+## Overview
 
+TraceHawk is a SOC-style cybersecurity project focused on detecting network-based attacks using Zeek. The project simulates an SSH brute force attack in a controlled lab environment and demonstrates how suspicious traffic can be captured, analyzed, detected, investigated, and reported. The workflow followed in this project reflects real-world SOC operations: Attack -> Capture -> Analyze -> Detect -> Investigate -> Report.
 
-\## 📌 Overview
+## Objectives
 
+- Capture network traffic using tcpdump
+- Analyze traffic using Zeek logs such as conn.log and ssh.log
+- Detect SSH brute force attack patterns
+- Identify attacker IP without prior assumption
+- Validate findings using Wireshark packet analysis
+- Implement Python-based detection logic
+- Document findings in a SOC-style incident report
 
+## Lab Architecture
 
-TraceHawk is a SOC-style cybersecurity project focused on detecting network-based attacks using Zeek. The project simulates a real-world SSH brute force attack in a controlled lab environment and demonstrates how attackers can be identified through traffic analysis.
+| Machine | Role | Tools / Services |
+|---|---|---|
+| Kali Linux | Attacker | Hydra, Nmap |
+| Windows 11 | Target System | OpenSSH Server |
+| Ubuntu | Monitoring Node | Zeek, tcpdump, Wireshark |
 
+## Architecture Diagram
 
+![Architecture](architecture/network_architecture.png)
 
-This project follows a practical workflow used in Security Operations Centers:
+## Attack Scenario
 
+An SSH brute force attack was simulated using Hydra from Kali Linux against the Windows 11 target system.
 
-
-Attack → Capture → Analyze → Detect → Investigate → Report
-
-
-
-\---
-
-
-
-\## 🎯 Objectives
-
-
-
-\- Capture network traffic using tcpdump
-
-\- Analyze logs using Zeek (conn.log, ssh.log)
-
-\- Detect SSH brute force attacks
-
-\- Identify attacker IP without prior knowledge
-
-\- Perform packet analysis using Wireshark
-
-\- Implement detection logic using Python
-
-
-
-\---
-
-
-
-\## 🏗 Lab Architecture
-
-
-
-\- Attacker: Kali Linux
-
-\- Target: Windows 11 (SSH enabled)
-
-\- Monitoring: Ubuntu (Zeek, tcpdump, Wireshark)
-
-\- Network: Host-Only isolated environment
-
-
-
-
-
-!\[Architecture](architecture/network\_architecture.png)
-
-
-
-\---
-
-
-
-\## ⚔️ Attack Scenario
-
-
-
-An SSH brute force attack was simulated using Hydra from Kali Linux targeting the Windows system.
-
-
-
-Command used:
-
-
-
+```bash
 hydra -l testuser -P /usr/share/wordlists/rockyou.txt ssh://192.168.206.133 -t 4 -V
+```
 
+## Data Collection
 
+Network traffic was captured on the Ubuntu monitoring system using tcpdump.
 
-\---
+```bash
+sudo tcpdump -i ens34 -nn -w ssh_bruteforce.pcap
+```
 
+The captured PCAP file was processed using Zeek to generate structured network logs.
 
+```bash
+zeek -r ssh_bruteforce.pcap
+```
 
-\## 📡 Data Collection
+## Zeek Logs Used
 
+| Log File | Purpose |
+|---|---|
+| conn.log | Connection-level network activity |
+| ssh.log | SSH session visibility |
+| dns.log | DNS query activity |
+| dhcp.log | DHCP-related activity |
+| weird.log | Protocol anomalies |
+| packet_filter.log | Packet filtering information |
+| reporter.log | Zeek runtime messages |
 
+## Detection Methodology
 
-Network traffic was captured using tcpdump:
+SSH brute force activity was detected using frequency-based analysis of Zeek connection logs. The investigation focused on repeated connection attempts toward TCP port 22.
 
+```bash
+cat conn.log | zeek-cut id.orig_h id.resp_p | grep 22 | sort | uniq -c | sort -nr
+```
 
+This command identifies the source IP generating the highest number of SSH connection attempts. The suspected attacker was not assumed based on the lab setup; it was identified through log evidence and traffic behavior.
 
-sudo tcpdump -i ens34 -nn -w ssh\_bruteforce.pcap
+## Key Findings
 
+- A high number of SSH attempts were observed from a single source IP
+- The target system was repeatedly accessed on TCP port 22
+- The traffic pattern showed repeated short-duration connections
+- The behavior was consistent with automated SSH brute force activity
+- The attacker IP was identified through Zeek log analysis instead of prior assumption
+- Wireshark was used to validate the packet-level behavior
 
+## Screenshots
 
-The captured PCAP file was analyzed using Zeek:
+### Network Connectivity
 
+![Ping](screenshots/ssh-bruteforce/kali_to_windows_ping.png)
 
+### SSH Service Discovery
 
-zeek -r ssh\_bruteforce.pcap
+![Nmap](screenshots/ssh-bruteforce/nmap_ssh_port_open.png)
 
+### Packet Capture Started
 
+![tcpdump capture started](screenshots/ssh-bruteforce/tcpdump_capture_started.png)
 
-\---
+### Brute Force Attack Execution
 
+![Hydra brute force attack](screenshots/ssh-bruteforce/hydra_bruteforce_attack.png)
 
+### Packet Capture Stopped
 
-\## 🔍 Detection Methodology
+![tcpdump capture stopped](screenshots/ssh-bruteforce/tcpdump_capture_stopped.png)
 
+### Zeek Logs Generated
 
+![Zeek logs generated](screenshots/ssh-bruteforce/zeek_logs_generated.png)
 
-The attack was detected using Zeek logs by:
+### Attacker IP Identification
 
+![Attacker IP identification](screenshots/ssh-bruteforce/attacker_ip_identification.png)
 
+### Connection Log Analysis
 
-\- Filtering SSH traffic (port 22)
+![conn.log analysis](screenshots/ssh-bruteforce/conn_log_analysis.png)
 
-\- Identifying repeated connections
+### Wireshark SSH Traffic Analysis
 
-\- Detecting abnormal traffic patterns
+![Wireshark SSH filter](screenshots/ssh-bruteforce/wireshark_ssh_filter.png)
 
-\- Performing frequency-based analysis
+### Python Detection Output
 
+![Python detection output](screenshots/ssh-bruteforce/python_detection_alert.png)
 
+## Project Structure
 
-Example detection command:
-
-
-
-cat conn.log | zeek-cut id.orig\_h id.resp\_p | grep 22 | sort | uniq -c | sort -nr
-
-
-
-\---
-
-\## 📸 Attack Execution \& Analysis Screenshots
-
-
-
-\### 🔹 Network Connectivity Verification
-
-!\[Ping Test](screenshots/ssh-bruteforce/kali\_to\_windows\_ping.png)
-
-
-
-\---
-
-
-
-\### 🔹 SSH Service Discovery (Nmap Scan)
-
-!\[Nmap Scan](screenshots/ssh-bruteforce/nmap\_ssh\_port\_open.png)
-
-
-
-\---
-
-
-
-\### 🔹 Packet Capture Started (tcpdump)
-
-!\[tcpdump Start](screenshots/ssh-bruteforce/tcpdump\_capture\_started.png)
-
-
-
-\---
-
-
-
-\### 🔹 SSH Brute Force Attack (Hydra)
-
-!\[Hydra Attack](screenshots/ssh-bruteforce/hydra\_bruteforce\_attack.png)
-
-
-
-\---
-
-
-
-\### 🔹 Packet Capture Stopped
-
-!\[tcpdump Stop](screenshots/ssh-bruteforce/tcpdump\_capture\_stopped.png)
-
-
-
-\---
-
-
-
-\### 🔹 Zeek Logs Generated
-
-!\[Zeek Logs](screenshots/ssh-bruteforce/zeek\_logs\_generated.png)
-
-
-
-\---
-
-
-
-\### 🔹 Attacker Identification (Zeek Analysis)
-
-!\[Attacker IP](screenshots/ssh-bruteforce/attacker\_ip\_identification.png)
-
-
-
-\---
-
-
-
-\### 🔹 Connection Log Analysis
-
-!\[conn.log](screenshots/ssh-bruteforce/conn\_log\_analysis.png)
-
-
-
-\---
-
-
-
-\### 🔹 Wireshark Analysis (SSH Traffic)
-
-!\[Wireshark Filter](screenshots/ssh-bruteforce/wireshark\_ssh\_filter.png)
-
-
-
-\---
-
-
-
-\### 🔹 TCP Stream / Attack Pattern
-
-!\[TCP Stream](screenshots/ssh-bruteforce/wireshark\_tcp\_stream.png)
-
-
-
-\---
-
-
-
-\### 🔹 Python Detection Output
-
-!\[Detection Script](screenshots/ssh-bruteforce/python\_detection\_alert.png)
-
-
-
-
-
-\## 🚨 Key Findings
-
-
-
-\- High volume of SSH attempts from a single IP
-
-\- Repeated short-duration connections
-
-\- Consistent targeting of the same system
-
-\- Behavior indicates automated brute force attack
-
-
-
-\---
-
-
-
-\## 🧠 Skills Demonstrated
-
-
-
-\- Network Traffic Analysis (NTA)
-
-\- Zeek Log Analysis
-
-\- Wireshark Packet Inspection
-
-\- Attack Detection \& Investigation
-
-\- SOC Workflow Implementation
-
-\- Python-based Detection Logic
-
-
-
-\---
-
-
-
-\## 📂 Project Structure
-
-
-
+```text
 TraceHawk/
-
-│
-
+├── README.md
+├── LICENSE
+├── .gitignore
+├── architecture/
+│   └── network_architecture.png
 ├── setup/
-
+│   └── setup.md
 ├── analysis/
-
+│   └── brute_force_analysis.md
 ├── attacks/
-
+│   └── ssh_bruteforce.md
 ├── incident-reports/
-
+│   └── ssh_bruteforce_report.md
 ├── pcaps/
-
+│   └── ssh_bruteforce.pcap
 ├── zeek-logs/
-
+│   └── ssh-bruteforce/
+│       ├── conn.log
+│       ├── ssh.log
+│       ├── dns.log
+│       ├── dhcp.log
+│       ├── packet_filter.log
+│       ├── reporter.log
+│       └── weird.log
 ├── detection-scripts/
+│   └── detect_ssh_bruteforce.py
+└── screenshots/
+    └── ssh-bruteforce/
+        ├── kali_to_windows_ping.png
+        ├── nmap_ssh_port_open.png
+        ├── tcpdump_capture_started.png
+        ├── hydra_bruteforce_attack.png
+        ├── tcpdump_capture_stopped.png
+        ├── zeek_logs_generated.png
+        ├── attacker_ip_identification.png
+        ├── conn_log_analysis.png
+        ├── wireshark_ssh_filter.png
+        └── python_detection_alert.png
+```
 
-├── screenshots/
+## Skills Demonstrated
 
-└── architecture/
+- Network Traffic Analysis
+- Zeek Log Analysis
+- PCAP Analysis
+- Wireshark Packet Inspection
+- SSH Brute Force Detection
+- SOC Investigation Workflow
+- Python-Based Detection Logic
+- Incident Documentation
 
+## Disclaimer
 
-
-\---
-
-
-
-\## 📌 Conclusion
-
-
-
-This project demonstrates how network-level monitoring can be used to detect brute force attacks without relying on endpoint logs. It highlights practical SOC analyst skills including traffic analysis, attacker identification, and incident investigation.
-
-
-
-\---
-
-
-
-\## ⚠️ Disclaimer
-
-
-
-This project is created for educational purposes only. All activities were performed in a controlled lab environment.
-
-
-
+This project was created for educational and portfolio purposes only. All testing was performed in a controlled lab environment.

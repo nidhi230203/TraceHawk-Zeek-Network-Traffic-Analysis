@@ -1,338 +1,228 @@
-\# ⚙️ Lab Setup \& Methodology
+# Lab Setup and Methodology
 
+## Introduction
 
+This document describes the setup and methodology used for the TraceHawk Network Forensics and Threat Detection Lab. The lab was created to simulate a real-world SOC workflow for detecting SSH brute force activity using network traffic analysis. The project focuses on practical execution, evidence collection, log generation, analysis, detection, and reporting.
 
-\## 1. Introduction
+## Lab Environment
 
+The lab consists of three virtual machines connected through an isolated Host-Only network.
 
+| Machine | Role | Operating System | Purpose |
+|---|---|---|---|
+| Kali Linux | Attacker | Kali Linux | Used to perform reconnaissance and SSH brute force attack |
+| Windows 11 | Target System | Windows 11 | Hosted the SSH service targeted during the attack |
+| Ubuntu | Monitoring Node | Ubuntu Linux | Used for packet capture, Zeek log generation, and traffic analysis |
 
-This project was developed in a controlled virtual lab environment to simulate and detect network-based attacks using Zeek. The objective is to replicate a real-world Security Operations Center (SOC) workflow, focusing on traffic capture, analysis, detection, and reporting.
+## Network Configuration
 
+All systems were connected to the same Host-Only network to keep the attack traffic isolated from the external network. This ensured that the activity remained controlled and safe for lab testing.
 
+Example IP addressing used in the lab:
 
-\---
+| System | Example IP Address |
+|---|---|
+| Kali Linux | 192.168.206.128 |
+| Windows 11 | 192.168.206.133 |
+| Ubuntu Monitoring Node | 192.168.206.xxx |
 
+Connectivity was verified between systems before starting the attack simulation. This step ensured that Kali Linux could reach the Windows target and that the Ubuntu monitoring system could observe network traffic on the correct interface.
 
+## Tools Used
 
-\## 2. Lab Architecture
+| Tool | System | Purpose |
+|---|---|---|
+| Nmap | Kali Linux | Service discovery and port verification |
+| Hydra | Kali Linux | SSH brute force simulation |
+| tcpdump | Ubuntu | Packet capture |
+| Zeek | Ubuntu | Network log generation and traffic analysis |
+| Wireshark | Ubuntu or Windows | Packet-level validation |
+| Python | Ubuntu or Windows | Detection logic implementation |
 
+## Target System Configuration
 
+The Windows 11 system was configured as the target machine. OpenSSH Server was enabled to expose SSH on TCP port 22. This allowed the lab to simulate a realistic SSH brute force attack scenario.
 
-The lab consists of three virtual machines connected via an isolated Host-Only network:
+The target service was verified from Kali Linux using Nmap.
 
-
-
-| Machine        | Role               | Operating System |
-
-|---------------|--------------------|------------------|
-
-| Kali Linux    | Attacker           | Kali Linux       |
-
-| Windows 11    | Target System      | Windows 11       |
-
-| Ubuntu        | Monitoring System  | Ubuntu Linux     |
-
-
-
-\### Network Configuration
-
-\- Network Type: Host-Only
-
-\- All machines are connected to the same virtual network
-
-\- Systems reside within the same subnet
-
-
-
-\---
-
-
-
-\## 3. Tools \& Technologies
-
-
-
-| Tool        | Purpose |
-
-|------------|--------|
-
-| Zeek       | Network traffic analysis and logging |
-
-| tcpdump    | Packet capture |
-
-| Wireshark  | Packet-level inspection |
-
-| Hydra      | SSH brute force attack simulation |
-
-| Nmap       | Port and service discovery |
-
-
-
-\---
-
-
-
-\## 4. IP Addressing Scheme
-
-
-
-Each machine was assigned a unique IP address within the same subnet:
-
-
-
-Kali Linux   → 192.168.206.128  
-
-Windows 11   → 192.168.206.133  
-
-Ubuntu       → 192.168.206.xxx  
-
-
-
-All machines were verified for connectivity using ping.
-
-
-
-\---
-
-
-
-\## 5. Target Configuration (Windows 11)
-
-
-
-To simulate an attackable service, SSH was enabled on the Windows machine.
-
-
-
-Steps performed:
-
-
-
-1\. Installed OpenSSH Server  
-
-2\. Started SSH service:
-
-&#x20;  Start-Service sshd  
-
-3\. Set service to start automatically:
-
-&#x20;  Set-Service -Name sshd -StartupType Automatic  
-
-4\. Allowed SSH traffic through firewall:
-
-&#x20;  New-NetFirewallRule -Name sshd -DisplayName "OpenSSH Server" -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22  
-
-
-
-\---
-
-
-
-\## 6. Attack Simulation (Kali Linux)
-
-
-
-A brute force attack was performed using Hydra targeting the SSH service.
-
-
-
-Step 1: Verify SSH Port
+Command used:
 
 nmap -p 22 192.168.206.133
 
+Expected result:
 
+22/tcp open ssh
 
-Step 2: Launch Attack
+This confirmed that the SSH service was reachable before starting the brute force simulation.
+
+## Monitoring Interface Identification
+
+Before capturing traffic, the correct network interface on Ubuntu was identified. This step is important because selecting the wrong interface can result in empty or incomplete packet captures.
+
+Command used:
+
+ip a
+
+The correct interface was selected based on the Host-Only network IP range. In this lab, the monitoring interface used for capture was ens34.
+
+## Packet Capture Methodology
+
+Packet capture was performed on the Ubuntu monitoring node using tcpdump. The capture was started before launching the attack to ensure the full attack window was recorded.
+
+Command used:
+
+sudo tcpdump -i ens34 -nn -w ssh_bruteforce.pcap
+
+Explanation:
+
+- ens34 was the monitoring interface connected to the Host-Only network
+- -nn disabled hostname and port name resolution for cleaner output
+- -w saved the captured packets into a PCAP file
+- ssh_bruteforce.pcap was used as the raw evidence file
+
+The capture was manually stopped after the attack completed.
+
+## Attack Simulation
+
+The SSH brute force attack was launched from Kali Linux using Hydra. The attack targeted the Windows 11 machine on TCP port 22.
+
+Command used:
 
 hydra -l testuser -P /usr/share/wordlists/rockyou.txt ssh://192.168.206.133 -t 4 -V
 
+Explanation:
 
+- -l specifies the username
+- -P specifies the password wordlist
+- ssh://192.168.206.133 specifies the SSH target
+- -t 4 limits parallel tasks
+- -V prints each attempt for visibility
 
-\- Multiple login attempts were generated  
+The attack was executed for a limited time in a controlled lab environment.
 
-\- Traffic targeted port 22 (SSH)  
+## Zeek Log Generation
 
-\- Attack duration was approximately 3–5 minutes  
-
-
-
-\---
-
-
-
-\## 7. Packet Capture (Ubuntu)
-
-
-
-Network traffic was captured during the attack using tcpdump.
-
-
+After the packet capture was completed, the PCAP file was processed using Zeek to generate structured logs.
 
 Command used:
 
-sudo tcpdump -i ens34 -nn -w ssh\_bruteforce.pcap
+zeek -r ssh_bruteforce.pcap
 
+This generated multiple Zeek logs that were used for analysis.
 
+Important logs generated:
 
-Key points:
+| Log File | Purpose |
+|---|---|
+| conn.log | Connection-level traffic visibility |
+| ssh.log | SSH session visibility |
+| dns.log | DNS query activity |
+| dhcp.log | DHCP activity |
+| weird.log | Protocol anomalies |
+| packet_filter.log | Packet filter information |
+| reporter.log | Zeek runtime messages |
 
-\- Capture started before the attack  
+## Analysis Workflow
 
-\- Capture stopped manually after the attack  
+The analysis followed a SOC-style investigation workflow.
 
-\- Output stored as a PCAP file for analysis  
+Workflow used:
 
+Attack Simulation -> Packet Capture -> Zeek Log Generation -> Traffic Analysis -> Detection -> Reporting
 
+The main analysis focused on identifying repeated SSH connection attempts toward port 22 and determining which source IP generated the suspicious activity.
 
-\---
+## SSH Traffic Filtering
 
-
-
-\## 8. Zeek Log Generation
-
-
-
-Captured traffic was processed using Zeek.
-
-
+SSH traffic was filtered from Zeek conn.log using the destination port.
 
 Command used:
 
-zeek -r ssh\_bruteforce.pcap
+cat conn.log | zeek-cut id.orig_h id.resp_h id.resp_p service | grep 22
 
+This helped isolate traffic related to the SSH service.
 
+## Attacker Identification Method
 
-Generated logs include:
+The suspected attacker was identified using frequency-based analysis instead of assuming the Kali Linux IP manually.
 
-\- conn.log (connection-level data)  
+Command used:
 
-\- ssh.log (authentication attempts)  
+cat conn.log | zeek-cut id.orig_h id.resp_p | grep 22 | sort | uniq -c | sort -nr
 
-\- dns.log (DNS queries)  
+This command counted SSH connection attempts per source IP. The source IP with the highest number of SSH attempts was treated as the suspicious source.
 
-\- dhcp.log, weird.log, and other supporting logs  
+## Wireshark Validation
 
+Wireshark was used to validate the Zeek findings at the packet level.
 
+Display filter used:
 
-\---
+tcp.port == 22
 
+After identifying the suspicious source IP, focused analysis can be done using:
 
+ip.src == suspected-attacker-ip && tcp.port == 22
 
-\## 9. Traffic Analysis Approach
+Wireshark helped confirm repeated SSH connection attempts and supported the detection conclusion.
 
+## Detection Logic
 
+The brute force behavior was detected based on repeated SSH connections from a single source to the same target on TCP port 22. The detection approach was behavior-based and did not rely on prior knowledge of the attacker.
 
-\### Zeek-Based Analysis
+Detection indicators included:
 
-\- Filtered SSH traffic using port 22  
+- Repeated SSH connection attempts
+- Same source IP targeting the same destination
+- High connection frequency
+- Short-duration sessions
+- Traffic directed toward TCP port 22
 
-\- Identified repeated connections  
+## Python Detection Script
 
-\- Detected abnormal connection patterns  
+A Python script was included to automate basic brute force detection using Zeek conn.log. The script counts SSH connection attempts and raises an alert when attempts exceed a defined threshold.
 
-\- Extracted attacker IP using frequency analysis  
+The script is stored in:
 
+detection-scripts/detect_ssh_bruteforce.py
 
+## Evidence Collected
 
-\### Wireshark Analysis
+The following evidence was collected and organized in the project repository:
 
-\- Applied filter:
+| Evidence Type | Location |
+|---|---|
+| PCAP file | pcaps/ssh_bruteforce.pcap |
+| Zeek logs | zeek-logs/ssh-bruteforce/ |
+| Detection script | detection-scripts/detect_ssh_bruteforce.py |
+| Screenshots | screenshots/ssh-bruteforce/ |
+| Analysis report | analysis/brute_force_analysis.md |
+| Incident report | incident-reports/ssh_bruteforce_report.md |
 
-&#x20; tcp.port == 22  
+## Challenges Faced
 
-\- Inspected TCP handshake behavior  
+During the setup and execution, several practical issues were encountered and resolved:
 
-\- Observed repeated connection attempts  
+- Incorrect interface selection during packet capture
+- Zeek command not available in PATH initially
+- Incomplete PCAP capture during early attempts
+- SSH service connectivity issues
+- Need to identify the attacker from logs rather than lab assumptions
 
-\- Verified attack pattern at packet level  
+These challenges helped improve the reliability of the final workflow.
 
+## Key Learnings
 
+This setup provided practical experience in:
 
-\---
+- Building an isolated network traffic analysis lab
+- Capturing packets using tcpdump
+- Generating structured logs using Zeek
+- Filtering and analyzing SSH traffic
+- Identifying attacker IP through log evidence
+- Validating findings using Wireshark
+- Writing SOC-style documentation and reports
 
+## Conclusion
 
-
-\## 10. Detection Methodology
-
-
-
-The attack was identified using behavior-based detection techniques:
-
-
-
-\- High volume of SSH connections from a single source IP  
-
-\- Repeated short-duration sessions  
-
-\- Failed connection states  
-
-\- Consistent targeting of a single destination  
-
-
-
-This approach enables detection without prior knowledge of the attacker.
-
-
-
-\---
-
-
-
-\## 11. Workflow Summary
-
-
-
-Attack Simulation → Packet Capture → Zeek Log Generation → Analysis → Detection → Reporting
-
-
-
-\---
-
-
-
-\## 12. Challenges Faced
-
-
-
-\- Initial network misconfiguration between virtual machines  
-
-\- Incorrect interface selection during packet capture  
-
-\- Missing SSH logs due to incomplete attack execution  
-
-\- Service configuration issues on the Windows system  
-
-
-
-\---
-
-
-
-\## 13. Key Learnings
-
-
-
-\- Proper network configuration is critical for accurate analysis  
-
-\- Packet capture must be validated before analysis  
-
-\- Zeek provides structured visibility into large traffic datasets  
-
-\- Behavior-based detection is effective for unknown threats  
-
-\- Combining log analysis with packet inspection improves accuracy  
-
-
-
-\---
-
-
-
-\## 14. Conclusion
-
-
-
-This lab demonstrates a practical SOC workflow for detecting brute force attacks using network traffic analysis. The project highlights real-world techniques for identifying malicious activity through logs and packet-level investigation, without relying on prior assumptions.
-
-
-
+The TraceHawk lab setup successfully demonstrates a practical SOC workflow for detecting SSH brute force activity using Zeek and packet analysis. The environment was designed to safely simulate attack traffic, capture evidence, generate logs, identify suspicious behavior, and document findings in a professional format.
