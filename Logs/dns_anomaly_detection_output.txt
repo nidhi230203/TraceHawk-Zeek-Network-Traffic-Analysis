@@ -1,0 +1,33 @@
+====================================================================================
+[ALERT] Suspicious DNS Unique-Subdomain Burst Detected
+====================================================================================
+Severity                         : High
+Suspected DNS Source IP          : 192.168.206.128
+DNS Resolver IP                  : 192.168.206.131
+Base Domain Analysed             : lab.test
+Total Queries in Peak Window     : 255
+Unique Queries in Peak Window    : 253
+Suspicious Long-Label Queries    : 250
+Unique Suspicious Subdomains     : 250
+Suspicious Query Ratio           : 98.04%
+Configured Threshold             : 50 unique suspicious subdomains
+Rolling Analysis Window          : 300 seconds
+Peak Window Start                : 2026-05-26 16:03:26
+Peak Window End                  : 2026-05-26 16:05:44
+Peak Window Duration             : 138.21 seconds
+DNS Response Codes               : NOERROR=255
+Detection Basis                  : Unique, long and high-entropy subdomain burst
+ATT&CK Reference                 : T1048.003 - Exfiltration Over Alternative Protocol: DNS
+Classification Note              : DNS tunneling-like anomaly; exfiltration not confirmed
+Sample Suspicious Queries:
+  - chunk001-fa48194fbdea9ace20175e13.lab.test
+  - chunk002-6cf8be4c3e0f13c7ab44a806.lab.test
+  - chunk003-15cd95ac4f805c1f512830e2.lab.test
+  - chunk004-551d8fd5faa8b08b14f4feb1.lab.test
+  - chunk005-bbb82169d03c07e103a1f7ec.lab.test
+  - chunk006-243769731ae32a1ea00d9dd9.lab.test
+  - chunk007-d7d677e6701019e01cd61344.lab.test
+  - chunk008-9d14852fbf1d6b8a5e415567.lab.test
+====================================================================================
+
+[INFO] Alert evidence exported to: dns_anomaly_alerts.csv
